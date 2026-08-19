@@ -1,0 +1,19 @@
+class slv_xtn extends uvm_sequence_item;
+   `uvm_object_utils(slv_xtn)
+  rand bit [31:0] Prdata;
+  bit Pwrite,Penable;
+  bit [3:0] Pselx;
+  bit [31:0] Paddr,Pwdata;
+  function new(string name="slv_xtn");
+   super.new(name);
+  endfunction
+  function void do_print(uvm_printer printer);
+     super.do_print(printer);
+     printer.print_field("PADDR",this.Paddr,32,UVM_HEX);
+     printer.print_field("PWDATA",this.Pwdata,32,UVM_HEX);
+     printer.print_field("PSELX",this.Pselx,4,UVM_DEC);
+     printer.print_field("PWRITE",this.Pwrite,1,UVM_DEC);
+     printer.print_field("PRDATA",this.Prdata,32,UVM_HEX);
+     printer.print_field("PENABLE",this.Penable,1,UVM_DEC);
+  endfunction
+endclass
