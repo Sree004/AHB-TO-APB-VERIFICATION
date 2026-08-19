@@ -1,0 +1,202 @@
+class env extends uvm_env;
+   `uvm_component_utils(env);
+
+master_agt_top mst_agt_toph;
+slave_agt_top  slv_agt_toph;
+
+scoreboard sb;
+//master_seqr mst_seqrh;
+//slave_seqr  slv_seqrh;
+env_config env_cfg;
+
+extern function new(string name="env",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+extern function void connect_phase(uvm_phase phase);
+endclass
+
+function env::new(string name="env",uvm_component parent);
+   super.new(name,parent);
+endfunction
+
+function void env::build_phase(uvm_phase phase);
+super.build_phase(phase);
+if(!uvm_config_db#(env_config)::get(this,"","env_cfg",env_cfg))
+   `uvm_fatal("ENV_CONFIG","error is from env get")
+if(env_cfg.has_mst_agt)
+    mst_agt_toph=master_agt_top::type_id::create("mst_agt_toph",this);
+if(env_cfg.has_slv_agt)
+    slv_agt_toph=slave_agt_top::type_id::create("slv_agt_toph",this);
+if(env_cfg.has_scoreboard)
+    sb=scoreboard::type_id::create("sb",this);
+/*if(env_cfg.has_master_seqr)
+    mst_seqrh=master_seqr::type_id::create("mst_seqrh",this);
+if(env_cfg.has_slave_seqr)
+   slv_seqrh=slave_seqr::type_id::create("slv_seqrh",this);*/
+
+endfunction
+function void env::connect_phase(uvm_phase phase);
+ //  mst_seqrh=mst_agt_toph.agnth[0].seqrh;
+ //  slv_seqrh=slv_agt_toph.slv_agnth[0].seqrh;
+if(env_cfg.has_scoreboard)
+  begin
+     foreach(mst_agt_toph.agnth[i])
+           mst_agt_toph.agnth[0].monh.monitor_port.connect(sb.fifo_mst_xtn[i].analysis_export);
+     foreach(slv_agt_toph.slv_agnth[i])
+           slv_agt_toph.slv_agnth[0].monh.monitor_port.connect(sb.fifo_slv_xtn[i].analysis_export);
+end
+endfunction
+SCOREBOARD
+class scoreboard extends uvm_scoreboard;
+   `uvm_component_utils(scoreboard)
+    env_config env_cfg;
+    int data_verified_count;
+    mst_xtn mst_monh;
+    slv_xtn slv_monh;
+uvm_tlm_analysis_fifo#(mst_xtn) fifo_mst_xtn[];
+uvm_tlm_analysis_fifo#(slv_xtn) fifo_slv_xtn[];
+
+covergroup mst_fcov;
+     option.per_instance=1;
+     SIZE:coverpoint mst_monh.Hsize{bins size={0,1,2};}
+     ADDR:coverpoint mst_monh.Haddr{bins first_slave={[32'h8000_0000:32'h8000_03ff]};
+                                    bins second_slave={[32'h8400_0000:32'h8400_03ff]};
+                                    bins third_slave={[32'h8800_0000:32'h8800_03ff]};
+                                    bins fourth_slave={[32'h8c00_0000:32'h8c00_03ff]};}
+     TRANS:coverpoint mst_monh.Htrans{bins trans[]={2,3};}
+     WRITE:coverpoint mst_monh.Hwrite{bins write={1};
+bins Read={0};
+}
+endgroup
+
+covergroup slv_fcov;
+          option.per_instance=1;
+          ADDR:coverpoint slv_monh.Paddr{bins first_slave={[32'h8000_0000:32'h8000_03ff]};
+                                     bins second_slave={[32'h8400_0000:32'h8400_03ff]};
+                                     bins third_slave={[32'h8800_0000:32'h8800_03ff]};
+                                     bins fourth_slave={[32'h8c00_0000:32'h8c00_03ff]};}
+          SEL: coverpoint slv_monh.Pselx{bins first_slave={4'b0001};
+                                     bins second_slave={4'b0010};
+                                     bins third_slave={4'b0100};
+                                     bins fourth_slave={4'b1000};}
+          WRITE: coverpoint  slv_monh.Pwrite{bins write={1};
+bins Read={0};
+}
+endgroup
+extern function new(string name="scoreboard",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+extern task run_phase(uvm_phase phase);
+extern function void check1(mst_xtn mst_monh,slv_xtn slv_monh);
+extern function void compare(int Hdata,Pdata,Haddr,Paddr);
+extern function void report_phase(uvm_phase phase);
+endclass
+
+function scoreboard::new(string name="scoreboard",uvm_component parent);
+  super.new(name,parent);
+  mst_fcov=new();
+  slv_fcov=new();
+endfunction
+
+function void scoreboard::build_phase(uvm_phase phase);
+  super.build_phase(phase);
+  if(!uvm_config_db #(env_config)::get(this,"","env_cfg",env_cfg))
+    `uvm_fatal("SCOREBOARD","cannot get from uvm_config_db have you set it?")
+  fifo_mst_xtn = new[env_cfg.slv_no_of_dut];
+  fifo_slv_xtn = new[env_cfg.mst_no_of_dut];
+foreach(fifo_mst_xtn[i])
+       fifo_mst_xtn[i]=new($sformatf("fifo_mst_xtn[%0d]",i),this);
+foreach(fifo_slv_xtn[i])
+      fifo_slv_xtn[i]=new($sformatf("fifo_slv_xtn[%0d]",i),this);
+endfunction
+
+task scoreboard::run_phase(uvm_phase phase);
+forever
+  begin
+fork
+ begin
+    fifo_mst_xtn[0].get(mst_monh);
+    `uvm_info("SB","data from master sb",UVM_LOW)
+     mst_monh.print();
+     mst_fcov.sample();
+end
+begin
+   fifo_slv_xtn[0].get(slv_monh);
+  `uvm_info("SB","Data from slave SB",UVM_LOW)
+   slv_monh.print();
+   check1(mst_monh,slv_monh);
+  slv_fcov.sample();
+end
+join
+end
+endtask
+
+function void scoreboard::check1(mst_xtn mst_monh,slv_xtn slv_monh);
+   if(mst_monh.Hwrite)
+       begin
+          case(mst_monh.Hsize)
+          2'b00: begin
+              if(mst_monh.Haddr[1:0]==2'b00)
+                  compare(mst_monh.Hwdata[7:0],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+              if(mst_monh.Haddr[1:0]==2'b01)
+                   compare(mst_monh.Hwdata[15:8],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+              if(mst_monh.Haddr[1:0]==2'b10)
+                 compare(mst_monh.Hwdata[23:16],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+               if(mst_monh.Haddr[1:0]==2'b11)
+                 compare(mst_monh.Hwdata[31:24],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+end
+             2'b01:begin
+                 if(mst_monh.Haddr[1:0]==2'b00)
+                  compare(mst_monh.Hwdata[15:0],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+                 if(mst_monh.Haddr[1:0]==2'b10)
+                  compare(mst_monh.Hwdata[31:16],slv_monh.Pwdata,mst_monh.Haddr,slv_monh.Paddr);
+               end
+           2'b10:compare(mst_monh.Hwdata[31:0],slv_monh.Pwdata[31:0],mst_monh.Haddr,slv_monh.Paddr);
+         endcase
+      end
+else
+       case(mst_monh.Hsize)
+         2'b00:begin
+            if(mst_monh.Haddr[1:0]==2'b00)
+                 compare(mst_monh.Hwdata,slv_monh.Pwdata[7:0],mst_monh.Haddr,slv_monh.Paddr);
+            if(mst_monh.Haddr[1:0]==2'b01)
+               compare(mst_monh.Hwdata,slv_monh.Pwdata[15:8],mst_monh.Haddr,slv_monh.Paddr);
+            if(mst_monh.Haddr[1:0]==2'b10)
+               compare(mst_monh.Hwdata,slv_monh.Pwdata[23:16],mst_monh.Haddr,slv_monh.Paddr);
+             if(mst_monh.Haddr[1:0]==2'b11)
+              compare(mst_monh.Hwdata,slv_monh.Pwdata[31:24],mst_monh.Haddr,slv_monh.Paddr);
+        end
+        2'b01:begin
+         if(mst_monh.Haddr[1:0]==2'b00)
+            compare(mst_monh.Hwdata[15:0],slv_monh.Pwdata[15:0],mst_monh.Haddr,slv_monh.Paddr);
+         if(mst_monh.Haddr[1:0]==2'b10)
+           compare(mst_monh.Hwdata[15:0],slv_monh.Pwdata[31:16],mst_monh.Haddr,slv_monh.Paddr);
+       end
+         2'b10: compare(mst_monh.Hwdata[31:0],slv_monh.Pwdata[31:0],mst_monh.Haddr,slv_monh.Paddr);
+         endcase
+endfunction
+
+function void scoreboard::compare(int Hdata,Pdata,Haddr,Paddr);
+   if(mst_monh.Haddr==slv_monh.Paddr)
+         `uvm_info("SB","Address Matched",UVM_LOW)
+   else
+          `uvm_info("SB","address not Matched",UVM_LOW)
+   if(mst_monh.Hwrite)
+   begin
+         if(Hdata==Pdata)
+           `uvm_info("SB","Write data Matched",UVM_LOW)
+           else
+             `uvm_info("SB","Write data does not match",UVM_LOW)
+         end
+else
+        begin
+           if(Hdata==Pdata)
+               `uvm_info("SB","read data matched",UVM_LOW)
+            else
+               `uvm_info("SB","read data does not matche",UVM_LOW)
+    end
+data_verified_count++;
+
+endfunction
+
+function void scoreboard::report_phase(uvm_phase phase);
+  `uvm_info(get_type_name(),$sformatf("no of data verified in SB %0d",data_verified_count),UVM_LOW)
+endfunction
