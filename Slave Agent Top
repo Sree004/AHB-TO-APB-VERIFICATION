@@ -1,0 +1,50 @@
+class slave_agt_top extends uvm_env;
+   `uvm_component_utils(slave_agt_top)
+    env_config env_cfg;
+    slave_config slv_cfg;
+    slave_agent  slv_agnth[];
+
+extern function new(string name="slave_agt_top",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+endclass
+
+function slave_agt_top::new(string name="slave_agt_top",uvm_component parent);
+  super.new(name,parent);
+endfunction
+
+function void slave_agt_top::build_phase(uvm_phase phase);
+   super.build_phase(phase);
+   if(!uvm_config_db #(env_config)::get(this,"","env_cfg",env_cfg))
+     `uvm_fatal("SLAVE_AGT_TOP","fatal from slave agent top")
+    slv_agnth=new[env_cfg.slv_no_of_dut];
+    foreach(slv_agnth[i])
+     begin
+       uvm_config_db #(slave_config)::set(this,$sformatf("agnth[%0d]*",i),"slv_cfg",env_cfg.slv_cfg[i]);
+       slv_agnth[i]=slave_agent::type_id::create($sformatf("agnth[%0d]",i),this);
+     end
+endfunction
+class slave_agt_top extends uvm_env;
+   `uvm_component_utils(slave_agt_top)
+    env_config env_cfg;
+    slave_config slv_cfg;
+    slave_agent  slv_agnth[];
+
+extern function new(string name="slave_agt_top",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+endclass
+
+function slave_agt_top::new(string name="slave_agt_top",uvm_component parent);
+  super.new(name,parent);
+endfunction
+
+function void slave_agt_top::build_phase(uvm_phase phase);
+   super.build_phase(phase);
+   if(!uvm_config_db #(env_config)::get(this,"","env_cfg",env_cfg))
+     `uvm_fatal("SLAVE_AGT_TOP","fatal from slave agent top")
+    slv_agnth=new[env_cfg.slv_no_of_dut];
+    foreach(slv_agnth[i])
+     begin
+       uvm_config_db #(slave_config)::set(this,$sformatf("agnth[%0d]*",i),"slv_cfg",env_cfg.slv_cfg[i]);
+       slv_agnth[i]=slave_agent::type_id::create($sformatf("agnth[%0d]",i),this);
+     end
+endfunction
