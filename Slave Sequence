@@ -1,0 +1,6 @@
+class slave_seq extends uvm_sequence;
+  `uvm_object_utils(slave_seq)
+   function new(string name="slave_seq");
+     super.new(name);
+  endfunction
+endclass
