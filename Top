@@ -1,0 +1,47 @@
+module top;
+   import uvm_pkg::*;
+   `include "uvm_macros.svh"
+   import pkg::*;
+   bit clock;
+   always
+      forever #5 clock=~clock;
+ bridge_if mst(clock);
+ bridge_if slv(clock);
+
+ rtl_top DUT(.Hclk(clock),.Hresetn(mst.Hresetn),.Htrans(mst.Htrans),
+                .Hsize(mst.Hsize),.Hreadyin(mst.Hreadyin),.Hwdata(mst.Hwdata),
+                .Haddr(mst.Haddr),.Hwrite(mst.Hwrite),.Hrdata(mst.Hrdata),
+                .Hresp(mst.Hresp),.Hreadyout(mst.Hreadyout),
+                .Pselx(slv.Pselx),.Pwrite(slv.Pwrite),.Prdata(slv.Prdata),
+                .Penable(slv.Penable),.Paddr(slv.Paddr),.Pwdata(slv.Pwdata));
+
+initial
+   begin
+    uvm_config_db #(virtual bridge_if)::set(null,"*","mst_if0",mst);
+    uvm_config_db #(virtual bridge_if)::set(null,"*","slv_if0",slv);
+
+   run_test();
+  end
+
+property Hreadyout_valid;
+  @(posedge clock) disable iff(!mst.Hresetn)
+     (mst.Hreadyout==0) |=> ($stable(mst.Haddr) && $stable(mst.Htrans) &&$stable(mst.Hwrite) &&$stable(mst.Hsize) &&$stable(mst.Hwdata)) until(mst.Hreadyout==1);
+endproperty
+
+property Pselx_signal;
+    @(posedge clock) disable iff(!mst.Hresetn)
+    (slv.Pselx==1) |-> slv.Pselx inside {4'b0001,4'b0010,4'b0100,4'b1000};
+endproperty
+assert property(Hreadyout_valid)
+   `uvm_info("TOP","Hready out Assertion passed",UVM_LOW)
+else
+   `uvm_error("TOP","Assertion fails")
+assert property(Pselx_signal)
+   `uvm_info("TOP","Pselx assertion pass",UVM_LOW)
+else
+   `uvm_error("TOP","assertion fails")
+
+cover property(Hreadyout_valid);
+cover property(Pselx_signal);
+
+endmodule
