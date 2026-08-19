@@ -1,0 +1,51 @@
+class mst_xtn extends uvm_sequence_item;
+   `uvm_object_utils(mst_xtn)
+
+    rand bit [31:0]Hwdata;
+    rand bit [2:0] Hsize,Hburst;
+    rand bit [31:0]Haddr;
+    rand bit [1:0] Htrans;
+    bit [1:0] Hresp;
+    rand bit Hwrite;
+    bit Hrdata;
+    bit Hreadyin,Hreadyout;
+
+    rand bit [9:0] Hlen;
+
+extern function new(string name="mst_xtn");
+extern function void do_print(uvm_printer printer);
+
+constraint valid_haddr{Haddr inside {[32'h8000_0000:32'h8000_03ff],
+                                     [32'h8400_0000:32'h8400_03ff],
+                                     [32'h8800_0000:32'h8800_03ff],
+                                     [32'h8C00_0000:32'h8C00_03ff]};}
+
+constraint valid_incr{Hsize==1 -> Haddr%2==0;
+                      Hsize==2 -> Haddr%4==0;}
+
+constraint valid_len{Hburst ==1 -> Hlen==1;
+                     Hburst ==2 -> Hlen==4;
+                     Hburst ==3 -> Hlen==4;
+                     Hburst ==4 -> Hlen==8;
+                     Hburst ==5 -> Hlen==8;
+                     Hburst ==6 -> Hlen==16;
+                     Hburst ==7 -> Hlen==16;}
+constraint valid_size{Hsize inside {[0:2]};}
+constraint boundry{Haddr%1024 +(Hlen*(2**Hsize))<=1023;}
+endclass
+function mst_xtn::new(string name="mst_xtn");
+super.new(name);
+endfunction
+
+function void mst_xtn::do_print(uvm_printer printer);
+super.do_print(printer);
+printer.print_field("HWDATA",this.Hwdata,32,UVM_HEX);
+printer.print_field("HADDR",this.Haddr,32,UVM_HEX);
+printer.print_field("HTRANS",this.Htrans,2,UVM_DEC);
+printer.print_field("HWRITE",this.Hwrite,1,UVM_DEC);
+printer.print_field("HRDATA",this.Hrdata,32,UVM_HEX);
+printer.print_field("Hresp",this.Hresp,2,UVM_DEC);
+printer.print_field("HBURST",this.Hburst,3,UVM_DEC);
+printer.print_field("HSIZE",this.Hsize,3,UVM_DEC);
+printer.print_field("HLEN",this.Hlen,10,UVM_HEX);
+endfunction
