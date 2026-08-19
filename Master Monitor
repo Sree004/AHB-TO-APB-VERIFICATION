@@ -1,0 +1,54 @@
+class master_monitor extends uvm_monitor;
+  `uvm_component_utils(master_monitor)
+   master_config mst_cfg;
+  virtual bridge_if.MST_MON_MP vif;
+  mst_xtn xtnh;
+  uvm_analysis_port #(mst_xtn) monitor_port;
+extern function new(string name="master_monitor",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+extern function void connect_phase(uvm_phase phase);
+extern task run_phase(uvm_phase phase);
+extern task collect_data();
+
+endclass
+
+function master_monitor::new(string name="master_monitor",uvm_component parent);
+   super.new(name,parent);
+   monitor_port=new("monitor_port",this);
+endfunction
+
+function void master_monitor::build_phase(uvm_phase phase);
+  if(!uvm_config_db#(master_config)::get(this,"","mst_cfg",mst_cfg))
+     `uvm_fatal("CONFIG","Fatal from master monitor")
+endfunction
+
+function void master_monitor::connect_phase(uvm_phase phase);
+   vif=mst_cfg.vif;
+endfunction
+
+task master_monitor::run_phase(uvm_phase phase);
+ forever
+   begin
+      collect_data();
+   end
+endtask
+task master_monitor::collect_data();
+   xtnh=mst_xtn::type_id::create("xtnh");
+   wait(vif.mst_mon_cb.Hreadyout==1)
+   wait(vif.mst_mon_cb.Htrans==2'b10 || vif.mst_mon_cb.Htrans==2'b11)
+   `uvm_info("MONITOR","Print from monitor",UVM_LOW)
+    xtnh.Haddr=vif.mst_mon_cb.Haddr;
+    xtnh.Htrans=vif.mst_mon_cb.Htrans;
+    xtnh.Hsize=vif.mst_mon_cb.Hsize;
+    xtnh.Hwrite=vif.mst_mon_cb.Hwrite;
+    xtnh.Hreadyin=vif.mst_mon_cb.Hreadyin;
+    xtnh.Hreadyout=vif.mst_mon_cb.Hreadyout;
+    @(vif.mst_mon_cb);
+    wait(vif.mst_mon_cb.Hreadyout==1)
+    if(xtnh.Hwrite)
+       xtnh.Hwdata=vif.mst_mon_cb.Hwdata;
+    else
+       xtnh.Hrdata=vif.mst_mon_cb.Hrdata;
+    xtnh.print();
+    monitor_port.write(xtnh);
+endtask
