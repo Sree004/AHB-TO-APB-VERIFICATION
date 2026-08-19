@@ -1,0 +1,132 @@
+class test extends uvm_test;
+  `uvm_component_utils(test)
+
+env_config env_cfg;
+master_config mst_cfg[];
+slave_config slv_cfg[];
+env envh;
+
+int mst_no_of_dut=1;
+int slv_no_of_dut=1;
+
+bit has_mst_agt=1;
+bit has_slv_agt=1;
+
+extern function new(string name="test",uvm_component parent);
+extern function void build_phase(uvm_phase phase);
+extern function void end_of_elaboration_phase(uvm_phase phase);
+
+endclass
+
+function test::new(string name="test",uvm_component parent);
+  super.new(name,parent);
+endfunction
+
+function void  test::build_phase(uvm_phase phase);
+  super.build_phase(phase);
+  env_cfg=env_config::type_id::create("env_cfg",this);
+   if(has_mst_agt)
+      begin
+         mst_cfg=new[mst_no_of_dut];
+         env_cfg.mst_cfg=new[mst_no_of_dut];
+         foreach(mst_cfg[i])
+           begin
+             mst_cfg[i]=master_config::type_id::create($sformatf("mst_cfg[%0d]",i));
+             if(!uvm_config_db #(virtual bridge_if)::get(this,"",$sformatf("mst_if%0d",i),mst_cfg[i].vif))
+             `uvm_fatal("TEST","cannot get interface")
+             mst_cfg[i].is_active=UVM_ACTIVE;
+             env_cfg.mst_cfg[i]=mst_cfg[i];
+           end
+       end
+if(has_slv_agt)
+         begin
+            slv_cfg=new[slv_no_of_dut];
+            env_cfg.slv_cfg=new[slv_no_of_dut];
+            foreach(slv_cfg[i])
+               begin
+                  slv_cfg[i]=slave_config::type_id::create($sformatf("slv_cfg[%0d]",i));
+                  if(!uvm_config_db #(virtual bridge_if)::get(this,"",$sformatf("slv_if%0d",i),slv_cfg[i].vif))
+                  `uvm_fatal("TEST","cannot get interface")
+                  slv_cfg[i].is_active=UVM_ACTIVE;
+                  env_cfg.slv_cfg[i]=slv_cfg[i];
+               end
+          end
+
+  env_cfg.has_mst_agt=has_mst_agt;
+  env_cfg.has_slv_agt=has_slv_agt;
+
+  env_cfg.slv_no_of_dut=slv_no_of_dut;
+  env_cfg.mst_no_of_dut=mst_no_of_dut;
+
+  uvm_config_db #(env_config)::set(this,"*","env_cfg",env_cfg);
+  envh = env::type_id::create("envh",this);
+endfunction
+
+function void test::end_of_elaboration_phase(uvm_phase phase);
+  super.end_of_elaboration_phase(phase);
+  uvm_top.print_topology;
+endfunction
+
+class single_test extends test;
+  `uvm_component_utils(single_test)
+   single_seq seq1;
+   function new(string name="single_test",uvm_component parent);
+    super.new(name,parent);
+   endfunction
+
+   function void build_phase(uvm_phase phase);
+     super.build_phase(phase);
+   endfunction
+task run_phase(uvm_phase phase);
+      super.run_phase(phase);
+      repeat(10)
+      seq1=single_seq::type_id::create("seq1");
+      phase.raise_objection(this);
+      seq1.start(envh.mst_agt_toph.agnth[0].seqrh);
+      #100;
+      phase.drop_objection(this);
+   endtask
+endclass
+
+class incr_test extends test;
+  `uvm_component_utils(incr_test)
+   incr_seq seq2;
+   function new(string name="incr_test",uvm_component parent);
+   super.new(name,parent);
+   endfunction
+
+   function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+   endfunction
+
+   task run_phase(uvm_phase phase);
+   super.run_phase(phase);
+   repeat(10)
+   seq2=incr_seq::type_id::create("seq2");
+   phase.raise_objection(this);
+   seq2.start(envh.mst_agt_toph.agnth[0].seqrh);
+   #10;
+   phase.drop_objection(this);
+  endtask
+endclass
+class wrap_test extends test;
+  `uvm_component_utils(wrap_test)
+   wrap_seq seq3;
+   function new(string name="wrap_test",uvm_component parent);
+   super.new(name,parent);
+   endfunction
+
+   function void build_phase(uvm_phase phase);
+   super.build_phase(phase);
+   endfunction
+
+   task run_phase(uvm_phase phase);
+   super.run_phase(phase);
+  // repeat(10);
+   seq3=wrap_seq::type_id::create("seq3");
+   phase.raise_objection(this);
+   seq3.start(envh.mst_agt_toph.agnth[0].seqrh);
+   #10;
+   phase.drop_objection(this);
+   endtask
+endclass
