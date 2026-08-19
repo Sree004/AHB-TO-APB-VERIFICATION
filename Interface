@@ -1,0 +1,51 @@
+interface bridge_if(input bit clock);
+
+logic Hresetn;
+logic Hwrite;
+logic Hreadyin,Hreadyout;
+logic [1:0] Htrans;
+logic [1:0] Hresp;
+logic [31:0] Hwdata;
+logic [31:0] Hrdata;
+logic [31:0] Haddr;
+logic [2:0] Hsize;
+logic [2:0]Hburst;
+
+logic Penable;
+logic Pwrite;
+logic [31:0] Pwdata;
+logic [31:0] Prdata;
+logic [31:0] Paddr;
+logic Pselx;
+
+clocking mst_drv_cb@(posedge clock);
+   default input #1 output #1;
+   output Hresetn,Hburst;
+   output Htrans,Hwrite,Hreadyin,Hwdata,Haddr,Hsize;
+   input Hreadyout,Hresp;
+endclocking
+
+clocking mst_mon_cb@(posedge clock);
+   default input #1 output #1;
+   input Hrdata;
+   input Hreadyin,Hwdata,Hwrite,Htrans,Haddr,Hsize;
+   input Hresetn,Hreadyout,Hresp,Hburst;
+endclocking
+
+clocking slv_drv_cb@(posedge clock);
+  default input #1 output #1;
+  input Pselx,Pwrite,Penable,Pwdata;
+  output Prdata;
+endclocking
+clocking slv_mon_cb@(posedge clock);
+  default input #1 output #1;
+  input Pselx,Penable,Pwrite;
+  input Pwdata,Paddr,Prdata;
+endclocking
+
+modport MST_DRV_MP (clocking mst_drv_cb);
+modport MST_MON_MP (clocking mst_mon_cb);
+modport SLV_DRV_MP (clocking slv_drv_cb);
+modport SLV_MON_MP (clocking slv_mon_cb);
+
+endinterface
